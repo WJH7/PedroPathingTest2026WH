@@ -53,20 +53,26 @@ public class AutoTest extends OpMode {
             case 1:
                 if (!follower.isBusy()) {
                     follower.followPath(shootToPickup);
+                    pathTimer.resetTimer();
                     pathState = 2;
-                    break;
+                } else {
+                    telemetry.addLine("Follower Is Busy");
                 }
+                break;
             case 2:
-                if (!follower.isBusy()) {
+                if (!follower.isBusy() && follower.atPose(openGate, 2, 2) || pathTimer.getElapsedTime() > 4) {
                     follower.followPath(pickupToGate);
+                    pathTimer.resetTimer();
                     pathState = 3;
-                    break;
                 }
+                break;
+
             case 3:
-                if (!follower.isBusy()) {
+                if (!follower.isBusy() && follower.atPose(shootPose, 2, 2) || pathTimer.getElapsedTime() > 4) {
                     follower.followPath(gateToShoot);
-                    break;
+                    pathTimer.resetTimer();
                 }
+                break;
         }
     }
     @Override
@@ -78,6 +84,7 @@ public class AutoTest extends OpMode {
         follower.setPose(startPose);
     }
     public void start() {
+        pathTimer.resetTimer();
         opModeTimer.resetTimer();
         pathState = 0;
 
@@ -86,5 +93,7 @@ public class AutoTest extends OpMode {
     public void loop() {
         follower.update();
         updatePathState();
+        telemetry.addLine("Path Timer:" + pathTimer);
+        telemetry.update();
     }
 }
