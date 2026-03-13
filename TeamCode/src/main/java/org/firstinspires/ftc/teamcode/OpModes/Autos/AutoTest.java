@@ -47,30 +47,31 @@ public class AutoTest extends OpMode {
     public void updatePathState() {
         switch (pathState) {
             case 0:
+                pathTimer.resetTimer();
                 follower.followPath(startToShoot);
                 pathState = 1;
                 break;
             case 1:
-                if (!follower.isBusy()) {
-                    follower.followPath(shootToPickup);
+                if (pathTimer.getElapsedTimeSeconds() > 4 || follower.atPose(shootPose, 2, 2)) {
                     pathTimer.resetTimer();
+                    follower.followPath(shootToPickup);
                     pathState = 2;
                 } else {
-                    telemetry.addLine("Follower Is Busy");
+                    telemetry.addLine("Failed");
                 }
                 break;
             case 2:
-                if (!follower.isBusy() && follower.atPose(openGate, 2, 2) || pathTimer.getElapsedTime() > 4) {
-                    follower.followPath(pickupToGate);
+                if (pathTimer.getElapsedTimeSeconds() > 4 || follower.atPose(openGate, 2, 2)) {
                     pathTimer.resetTimer();
+                    follower.followPath(pickupToGate);
                     pathState = 3;
                 }
                 break;
 
             case 3:
-                if (!follower.isBusy() && follower.atPose(shootPose, 2, 2) || pathTimer.getElapsedTime() > 4) {
-                    follower.followPath(gateToShoot);
+                if (pathTimer.getElapsedTimeSeconds() > 4 || follower.atPose(shootPose, 2, 2)) {
                     pathTimer.resetTimer();
+                    follower.followPath(gateToShoot);
                 }
                 break;
         }
@@ -87,13 +88,13 @@ public class AutoTest extends OpMode {
         pathTimer.resetTimer();
         opModeTimer.resetTimer();
         pathState = 0;
-
     }
     @Override
     public void loop() {
         follower.update();
         updatePathState();
-        telemetry.addLine("Path Timer:" + pathTimer);
+        telemetry.addLine("Path Timer:" + pathTimer.getElapsedTime());
+        telemetry.addLine("Path State:" + pathState);
         telemetry.update();
     }
 }
