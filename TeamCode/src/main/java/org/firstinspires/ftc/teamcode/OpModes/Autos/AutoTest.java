@@ -9,6 +9,10 @@ import com.pedropathing.paths.PathChain;
 import com.qualcomm.robotcore.eventloop.opmode.Autonomous;
 import com.qualcomm.robotcore.eventloop.opmode.OpMode;
 import com.pedropathing.util.Timer;
+import com.qualcomm.robotcore.hardware.DcMotor;
+import com.qualcomm.robotcore.hardware.DcMotorEx;
+import com.qualcomm.robotcore.hardware.DcMotorSimple;
+import com.qualcomm.robotcore.hardware.HardwareMap;
 
 import org.firstinspires.ftc.teamcode.pedroPathing.Constants;
 
@@ -17,6 +21,9 @@ public class AutoTest extends OpMode {
     private Follower follower;
     private Timer pathTimer, opModeTimer;
     private int pathState;
+    private DcMotorEx flywheel1;
+    private DcMotorEx flywheel2;
+    private DcMotorEx intake;
     private final Pose startPose = new Pose(20, 122, Math.toRadians(135));
     private final Pose shootPose = new Pose(56.148939736477416, 87.10958304886576, Math.toRadians(135));
     private final Pose ballPickup1 = new Pose(15, 84, Math.toRadians(180));
@@ -56,8 +63,6 @@ public class AutoTest extends OpMode {
                     pathTimer.resetTimer();
                     follower.followPath(shootToPickup);
                     pathState = 2;
-                } else {
-                    telemetry.addLine("Failed");
                 }
                 break;
             case 2:
@@ -83,11 +88,17 @@ public class AutoTest extends OpMode {
         follower = Constants.createFollower(hardwareMap);
         pathBuilder();
         follower.setPose(startPose);
+        flywheel1 = hardwareMap.get(DcMotorEx.class, "flywheel1");
+        flywheel2 = hardwareMap.get(DcMotorEx.class, "flywheel2");
+        flywheel1.setDirection(DcMotorSimple.Direction.REVERSE);
+        intake = hardwareMap.get(DcMotorEx.class, "Intake");
     }
     public void start() {
         pathTimer.resetTimer();
         opModeTimer.resetTimer();
         pathState = 0;
+        flywheel1.setPower(0.5);
+        flywheel2.setPower(0.5);
     }
     @Override
     public void loop() {
