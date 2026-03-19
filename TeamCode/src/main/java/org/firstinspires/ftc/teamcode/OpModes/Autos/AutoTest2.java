@@ -19,6 +19,8 @@ public class AutoTest2 extends OpMode {
     private Follower follower;
     private Timer pathTimer, opModeTimer;
     private int pathState;
+    private int shotsFired;
+    private int nextStateAfterShooting;
     private DcMotorEx flywheel1;
     private DcMotorEx flywheel2;
     private DcMotorEx launcher;
@@ -50,6 +52,7 @@ public class AutoTest2 extends OpMode {
                 .setLinearHeadingInterpolation(openGate.getHeading(), shootPose.getHeading())
                 .build();
     }
+    private static final int    NUM_SHOTS                 = 3;
     private static final double LAUNCHER_POWER           = 0.4;   // reduce if still overshooting
     private static final double TARGET_FLYWHEEL_VELOCITY = 1420;   // ticks/sec – tune up/down as needed
     private static final double FIRE_DURATION            = 0.5;  // seconds per ball
@@ -71,130 +74,90 @@ public class AutoTest2 extends OpMode {
         flywheel2.setVelocity(0);
     }
 
+    // States 2, 3, 4 are shared for both shooting rounds.
+    // nextStateAfterShooting controls where the machine goes once NUM_SHOTS are complete.
     public void updatePathState() {
         switch (pathState) {
-            case 0:
+            case 0: // begin: drive to shoot pose while spinning flywheels
                 follower.followPath(startToShoot);
                 spinFlywheels();
                 intake.setPower(-1);
                 pathTimer.resetTimer();
                 pathState = 1;
                 break;
-            case 1:
+            case 1: // wait to arrive at shoot pose (first round)
                 if (follower.atPose(shootPose, 2, 2) || pathTimer.getElapsedTimeSeconds() > 5) {
+                    shotsFired = 0;
+                    nextStateAfterShooting = 5;
                     pathTimer.resetTimer();
                     pathState = 2;
                 }
                 break;
-            case 2:
-                if (flywheelsAtSpeed() || pathTimer.getElapsedTimeSeconds() >= FLYWHEEL_READY_TIMEOUT) {
+            case 2: // wait for flywheels — require atPose before firing to avoid off-position shots
+                if (follower.atPose(shootPose, 2, 2)
+                        && (flywheelsAtSpeed() || pathTimer.getElapsedTimeSeconds() >= FLYWHEEL_READY_TIMEOUT)) {
                     launcher.setPower(LAUNCHER_POWER);
                     pathTimer.resetTimer();
                     pathState = 3;
                 }
                 break;
-            case 3:
+            case 3: // firing — one ball per FIRE_DURATION
                 if (pathTimer.getElapsedTimeSeconds() >= FIRE_DURATION) {
                     launcher.setPower(0);
+                    shotsFired++;
                     pathTimer.resetTimer();
-                    pathState = 4;
+                    if (shotsFired < NUM_SHOTS) {
+                        pathState = 4; // pause before next shot
+                    } else {
+                        stopFlywheels();
+                        pathState = nextStateAfterShooting;
+                    }
                 }
                 break;
-            case 4:
+            case 4: // pause between shots
                 if (pathTimer.getElapsedTimeSeconds() >= PAUSE_DURATION) {
                     launcher.setPower(LAUNCHER_POWER);
                     pathTimer.resetTimer();
-                    pathState = 5;
+                    pathState = 3;
                 }
                 break;
-            case 5:
-                if (pathTimer.getElapsedTimeSeconds() >= FIRE_DURATION) {
-                    launcher.setPower(0);
-                    pathTimer.resetTimer();
-                    pathState = 6;
-                }
+            case 5: // first round done — drive to pickup
+                intake.setPower(-1);
+                follower.followPath(shootToPickup);
+                pathTimer.resetTimer();
+                pathState = 6;
                 break;
-            case 6:
-                if (pathTimer.getElapsedTimeSeconds() >= PAUSE_DURATION) {
-                    launcher.setPower(LAUNCHER_POWER);
+            case 6: // wait at pickup, then drive to gate
+                if (follower.atPose(ballPickup1, 2, 2) || pathTimer.getElapsedTimeSeconds() > 5) {
+                    follower.followPath(pickupToGate);
                     pathTimer.resetTimer();
                     pathState = 7;
                 }
                 break;
-            case 7:
-                if (pathTimer.getElapsedTimeSeconds() >= FIRE_DURATION) {
-                    launcher.setPower(0);
-                    stopFlywheels();
-                    intake.setPower(-1);
-                    follower.followPath(shootToPickup);
-                    pathTimer.resetTimer();
-                    pathState = 8;
-                }
-                break;
-            case 8:
-                if (follower.atPose(ballPickup1, 2, 2) || pathTimer.getElapsedTimeSeconds() > 5) {
-                    follower.followPath(pickupToGate);
-                    pathTimer.resetTimer();
-                    pathState = 9;
-                }
-                break;
-            case 9:
+            case 7: // wait at gate, then drive back to shoot pose
                 if (follower.atPose(openGate, 2, 2) || pathTimer.getElapsedTimeSeconds() > 5) {
                     follower.followPath(gateToShoot);
                     spinFlywheels();
                     pathTimer.resetTimer();
-                    pathState = 10;
+                    pathState = 8;
                 }
                 break;
-            case 10:
-                if (!follower.isBusy() || follower.atPose(shootPose, 2, 2) || pathTimer.getElapsedTimeSeconds() > 5) {
+            case 8: // wait to arrive at shoot pose (second round) — abort firing if off-position
+                if (follower.atPose(shootPose, 2, 2)) {
+                    shotsFired = 0;
+                    nextStateAfterShooting = 9;
                     pathTimer.resetTimer();
-                    pathState = 11;
-                }
-                break;
-            case 11:
-                if (flywheelsAtSpeed() || pathTimer.getElapsedTimeSeconds() >= FLYWHEEL_READY_TIMEOUT) {
-                    launcher.setPower(LAUNCHER_POWER);
-                    pathTimer.resetTimer();
-                    pathState = 12;
-                }
-                break;
-            case 12:
-                if (pathTimer.getElapsedTimeSeconds() >= FIRE_DURATION) {
-                    launcher.setPower(0);
-                    pathTimer.resetTimer();
-                    pathState = 13;
-                }
-                break;
-            case 13:
-                if (pathTimer.getElapsedTimeSeconds() >= PAUSE_DURATION) {
-                    launcher.setPower(LAUNCHER_POWER);
-                    pathTimer.resetTimer();
-                    pathState = 14;
-                }
-                break;
-            case 14:
-                if (pathTimer.getElapsedTimeSeconds() >= FIRE_DURATION) {
-                    launcher.setPower(0);
-                    pathTimer.resetTimer();
-                    pathState = 15;
-                }
-                break;
-            case 15:
-                if (pathTimer.getElapsedTimeSeconds() >= PAUSE_DURATION) {
-                    launcher.setPower(LAUNCHER_POWER);
-                    pathTimer.resetTimer();
-                    pathState = 16;
-                }
-                break;
-            case 16:
-                if (pathTimer.getElapsedTimeSeconds() >= FIRE_DURATION) {
-                    launcher.setPower(0);
+                    pathState = 2; // reuse shared flywheel-wait + fire/pause loop
+                } else if (!follower.isBusy() || pathTimer.getElapsedTimeSeconds() > 5) {
+                    // Timed out or follower stopped without reaching pose — abort to avoid off-position shots
                     stopFlywheels();
-                    pathState = 17;
+                    launcher.setPower(0);
+                    intake.setPower(0);
+                    pathState = 9;
                 }
                 break;
-            case 17:
+            case 9: // terminal — all done
+                intake.setPower(0.0);
                 break;
         }
     }
