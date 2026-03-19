@@ -4,7 +4,6 @@ import com.pedropathing.follower.Follower;
 import com.pedropathing.geometry.BezierCurve;
 import com.pedropathing.geometry.BezierLine;
 import com.pedropathing.geometry.Pose;
-import com.pedropathing.paths.Path;
 import com.pedropathing.paths.PathChain;
 import com.qualcomm.robotcore.eventloop.opmode.Autonomous;
 import com.qualcomm.robotcore.eventloop.opmode.OpMode;
@@ -12,7 +11,6 @@ import com.pedropathing.util.Timer;
 import com.qualcomm.robotcore.hardware.DcMotor;
 import com.qualcomm.robotcore.hardware.DcMotorEx;
 import com.qualcomm.robotcore.hardware.DcMotorSimple;
-import com.qualcomm.robotcore.hardware.HardwareMap;
 
 import org.firstinspires.ftc.teamcode.pedroPathing.Constants;
 
@@ -41,7 +39,7 @@ public class AutoTest2 extends OpMode {
                 .build();
         shootToPickup = follower.pathBuilder()
                 .addPath(new BezierLine(shootPose, ballPickup1))
-                .setLinearHeadingInterpolation(ballPickup1.getHeading(), ballPickup1.getHeading())
+                .setLinearHeadingInterpolation(shootPose.getHeading(), ballPickup1.getHeading())
                 .build();
         pickupToGate = follower.pathBuilder()
                 .addPath(new BezierCurve(ballPickup1, gatePathControlPoint, openGate))
@@ -212,9 +210,11 @@ public class AutoTest2 extends OpMode {
         launcher = hardwareMap.get(DcMotorEx.class, "Launcher");
         launcher.setDirection(DcMotorSimple.Direction.REVERSE);
         flywheel1.setDirection(DcMotorSimple.Direction.REVERSE);
+        flywheel2.setDirection(DcMotorSimple.Direction.REVERSE);
         flywheel1.setMode(DcMotor.RunMode.RUN_USING_ENCODER);
         flywheel2.setMode(DcMotor.RunMode.RUN_USING_ENCODER);
         intake = hardwareMap.get(DcMotorEx.class, "Intake");
+        intake.setPower(0.0);
         stopFlywheels();
     }
     public void start() {
@@ -223,17 +223,20 @@ public class AutoTest2 extends OpMode {
         pathState = 0;
         stopFlywheels();
         launcher.setPower(0.0);
+        intake.setPower(0.0);
     }
     @Override
     public void stop() {
         stopFlywheels();
         launcher.setPower(0.0);
+        intake.setPower(0.0);
     }
     @Override
     public void loop() {
         follower.update();
         updatePathState();
         telemetry.addLine("Path Timer:" + pathTimer.getElapsedTime());
+        telemetry.addLine("OpMode Timer:" + opModeTimer.getElapsedTime());
         telemetry.addLine("Path State:" + pathState);
         telemetry.addData("FW1 velocity", flywheel1.getVelocity());
         telemetry.addData("FW2 velocity", flywheel2.getVelocity());
