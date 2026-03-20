@@ -19,7 +19,6 @@ public class AutoTest2 extends OpMode {
     private Follower follower;
     private Timer pathTimer, opModeTimer;
     private int pathState;
-    private int shotsFired;
     private int nextStateAfterShooting;
     private DcMotorEx flywheel1;
     private DcMotorEx flywheel2;
@@ -27,9 +26,11 @@ public class AutoTest2 extends OpMode {
     private DcMotorEx intake;
 
     private final Pose startPose          = new Pose(20, 122, Math.toRadians(135));
-    private final Pose shootPose          = new Pose(56.148939736477416, 87.10958304886576, Math.toRadians(135));
+    private final Pose shootPose          = new Pose(56.148939736477416, 91, Math.toRadians(141));
+    private final Pose shootPose2         = new Pose(53, 91, Math.toRadians(138)); // second round — 3 units left
     private final Pose finalShootPose     = new Pose(51, 85, Math.toRadians(135)); // tune as needed
     private final Pose ballPickup1        = new Pose(15, 84, Math.toRadians(180));
+    private final Pose shootTurnPose      = new Pose(53, 87, Math.toRadians(180)); // turn in place before driving to pickup
     private final Pose openGate           = new Pose(15, 70, Math.toRadians(180));
     private final Pose gatePathControlPoint = new Pose(35, 76);
 
@@ -45,16 +46,18 @@ public class AutoTest2 extends OpMode {
                 .setLinearHeadingInterpolation(startPose.getHeading(), shootPose.getHeading())
                 .build();
         shootToPickup = follower.pathBuilder()
-                .addPath(new BezierLine(shootPose, ballPickup1))
-                .setLinearHeadingInterpolation(shootPose.getHeading(), ballPickup1.getHeading())
+                .addPath(new BezierLine(shootPose, shootTurnPose))
+                .setLinearHeadingInterpolation(shootPose.getHeading(), Math.toRadians(180))
+                .addPath(new BezierLine(shootTurnPose, ballPickup1))
+                .setConstantHeadingInterpolation(Math.toRadians(180))
                 .build();
         pickupToGate = follower.pathBuilder()
                 .addPath(new BezierCurve(ballPickup1, gatePathControlPoint, openGate))
                 .setLinearHeadingInterpolation(ballPickup1.getHeading(), openGate.getHeading())
                 .build();
         gateToShoot = follower.pathBuilder()
-                .addPath(new BezierLine(openGate, shootPose))
-                .setLinearHeadingInterpolation(openGate.getHeading(), shootPose.getHeading())
+                .addPath(new BezierLine(openGate, shootPose2))
+                .setLinearHeadingInterpolation(openGate.getHeading(), shootPose2.getHeading())
                 .build();
         shootToFinalShoot = follower.pathBuilder()
                 .addPath(new BezierLine(shootPose, finalShootPose))
@@ -63,15 +66,14 @@ public class AutoTest2 extends OpMode {
     }
 
     private static final int    NUM_SHOTS                 = 3;
-    private static final double LAUNCHER_POWER            = 0.4;   // reduce if still overshooting
-    private static final double TARGET_FLYWHEEL_VELOCITY  = 1600;  // ticks/sec — tune up/down as needed
+    private static final double LAUNCHER_POWER            = 0.45;   // reduce if still overshooting
+    private static final double TARGET_FLYWHEEL_VELOCITY  = 1400;  // ticks/sec — tune up/down as needed
     private static final double FIRE_DURATION             = 0.5;   // seconds per ball
-    private static final double PAUSE_DURATION            = 2.0;   // seconds between balls
-    private static final double FLYWHEEL_READY_TIMEOUT    = 5.0;   // fallback timeout (seconds)
+    private static final double PAUSE_DURATION            = 1.75;   // seconds between balls
 
     // Flywheel PIDF — tune KF first until steady-state, then KP for small corrections
-    private static final double FW_KF = 0.00055; // feedforward: base power per tick/sec of target
-    private static final double FW_KP = 0.0003;  // proportional correction on top of feedforward
+    private static final double FW_KF = 0.00045; // feedforward: base power per tick/sec of target
+    private static final double FW_KP = 0.001;  // proportional correction on top of feedforward
     private static final double FW_KI = 0.00002; // integral — keep small, windup causes oscillation
     private static final double FW_KD = 0.00001; // derivative — keep small or zero
     private static final double FW_MAX_INTEGRAL = 0.3; // clamp to prevent windup
@@ -130,6 +132,7 @@ public class AutoTest2 extends OpMode {
     }
 
     private void spinFlywheels() {
+        fwLastNanos = System.nanoTime();
         flywheelsEnabled = true;
     }
 
@@ -150,48 +153,28 @@ public class AutoTest2 extends OpMode {
                 break;
             case 1: // wait to arrive at shoot pose (first round)
                 if (follower.atPose(shootPose, 2, 2) || pathTimer.getElapsedTimeSeconds() > 5) {
-                    shotsFired = 0;
                     nextStateAfterShooting = 5;
                     pathTimer.resetTimer();
                     pathState = 2;
                 }
                 break;
-            case 2: // wait for flywheels + settle before firing
-                if (pathTimer.getElapsedTimeSeconds() >= 1.5
-                        && (flywheelsAtSpeed() || pathTimer.getElapsedTimeSeconds() >= FLYWHEEL_READY_TIMEOUT)) {
-                    launcher.setPower(LAUNCHER_POWER);
-                    pathTimer.resetTimer();
+            case 2: // fixed settle wait, then start shot sequence
+                if (pathTimer.getElapsedTimeSeconds() >= 1.5) {
+                    pathTimer.resetTimer(); // t=0 is now the shot sequence start
                     pathState = 3;
                 }
                 break;
-            case 3: // firing — one ball per FIRE_DURATION
-                if (pathTimer.getElapsedTimeSeconds() >= FIRE_DURATION) {
-                    launcher.setPower(0);
-                    shotsFired++;
-                    pathTimer.resetTimer();
-                    if (shotsFired < NUM_SHOTS) {
-                        pathState = 4;
-                    } else {
-                        stopFlywheels();
-                        pathState = nextStateAfterShooting;
-                    }
-                }
-                break;
-            case 4: // pause between shots — wait for flywheels before shot 3
-                if (shotsFired == NUM_SHOTS - 1) {
-                    // last pause: also wait for flywheels to recover
-                    if (pathTimer.getElapsedTimeSeconds() >= PAUSE_DURATION
-                            && (flywheelsAtSpeed() || pathTimer.getElapsedTimeSeconds() >= PAUSE_DURATION + FLYWHEEL_READY_TIMEOUT)) {
-                        launcher.setPower(LAUNCHER_POWER);
-                        pathTimer.resetTimer();
-                        pathState = 3;
-                    }
+            case 3: // all shots managed from a single running clock — no per-shot resets
+                double shotPeriod = FIRE_DURATION + PAUSE_DURATION;
+                double t = pathTimer.getElapsedTimeSeconds();
+                int currentShot = (int) (t / shotPeriod);
+                double timeInShot = t - currentShot * shotPeriod;
+                if (currentShot < NUM_SHOTS) {
+                    launcher.setPower(timeInShot < FIRE_DURATION ? LAUNCHER_POWER : 0);
                 } else {
-                    if (pathTimer.getElapsedTimeSeconds() >= PAUSE_DURATION) {
-                        launcher.setPower(LAUNCHER_POWER);
-                        pathTimer.resetTimer();
-                        pathState = 3;
-                    }
+                    launcher.setPower(0);
+                    stopFlywheels();
+                    pathState = nextStateAfterShooting;
                 }
                 break;
             case 5: // first round done — drive to pickup
@@ -216,8 +199,7 @@ public class AutoTest2 extends OpMode {
                 }
                 break;
             case 8: // wait to arrive at shoot pose (second round) — 5s settle, abort if off-position
-                if (follower.atPose(shootPose, 2, 2) && pathTimer.getElapsedTimeSeconds() >= 5) {
-                    shotsFired = 0;
+                if (follower.atPose(shootPose2, 2, 2) && pathTimer.getElapsedTimeSeconds() >= 5) {
                     nextStateAfterShooting = 10;
                     pathTimer.resetTimer();
                     pathState = 2;
@@ -262,7 +244,6 @@ public class AutoTest2 extends OpMode {
         launcher  = hardwareMap.get(DcMotorEx.class, "Launcher");
         launcher.setDirection(DcMotorSimple.Direction.REVERSE);
         flywheel1.setDirection(DcMotorSimple.Direction.REVERSE);
-        flywheel2.setDirection(DcMotorSimple.Direction.REVERSE);
         flywheel1.setMode(DcMotor.RunMode.RUN_WITHOUT_ENCODER);
         flywheel2.setMode(DcMotor.RunMode.RUN_WITHOUT_ENCODER);
         intake = hardwareMap.get(DcMotorEx.class, "Intake");
@@ -274,7 +255,7 @@ public class AutoTest2 extends OpMode {
         pathTimer.resetTimer();
         opModeTimer.resetTimer();
         pathState = 0;
-        stopFlywheels();
+        spinFlywheels();
         launcher.setPower(0.0);
         intake.setPower(0.0);
     }
@@ -289,8 +270,8 @@ public class AutoTest2 extends OpMode {
     @Override
     public void loop() {
         follower.update();
-        updateFlywheelPID();
         updatePathState();
+        updateFlywheelPID();
         telemetry.addLine("--- Path ---");
         telemetry.addData("State", pathState);
         telemetry.addData("Path Timer", "%.2f s", pathTimer.getElapsedTimeSeconds());
