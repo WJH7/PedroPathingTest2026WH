@@ -81,13 +81,13 @@ public class AutoTest extends OpMode {
                 }
                 break;
             case 4:
-                if (pathTimer.getElapsedTimeSeconds() > 4) {
+                if (pathTimer.getElapsedTimeSeconds() > 3.5 || follower.atPose(shootPose, 2, 2)) {
                     launcher.on();
                     if (shootReset) {
                         shootTimer.resetTimer();
                         shootReset = false;
                     }
-                    if (shootTimer.getElapsedTimeSeconds() > 6) {
+                    if (shootTimer.getElapsedTimeSeconds() > 2) {
                         telemetry.addLine("shootTimer works");
                         launcher.off();
                         if (timesShot == 0) {
