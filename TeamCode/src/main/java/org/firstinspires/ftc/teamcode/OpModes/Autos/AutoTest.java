@@ -112,7 +112,7 @@ public class AutoTest extends OpMode {
         pathBuilder();
         follower.setPose(startPose);
         intake = new Intake(hardwareMap);
-        flywheel = new Flywheel(hardwareMap);
+        flywheel = new Flywheel(hardwareMap, 64, 26, 14);
         launcher = new Launcher(hardwareMap);
     }
     public void start() {
