@@ -8,9 +8,9 @@ import com.qualcomm.robotcore.hardware.PIDFCoefficients;
 
 public class Flywheel {
     public DcMotorEx flywheel1, flywheel2;
-    public double flywheelP;
-    public double flywheelF;
-    public double flywheelD;
+    public double flywheelP = 64;
+    public double flywheelD = 26;
+    public double flywheelF = 14;
     public Flywheel(HardwareMap hardwareMap){
         //MAIN INIT STUFF
         flywheel1 = hardwareMap.get(DcMotorEx.class, "flywheel1");
@@ -29,19 +29,21 @@ public class Flywheel {
     }
 
 
-
     public void on() {
         flywheel1.setPower(0.6);
         flywheel2.setPower(0.6);
+        return;
     }
     public void off() {
         flywheel1.setPower(0);
         flywheel2.setPower(0);
+        return;
     }
     public void updatePIDF(double newP, double newD, double newF) {
         PIDFCoefficients pidfCoefficients = new PIDFCoefficients(newP, 0, newD, newF);
         flywheel1.setPIDFCoefficients(DcMotor.RunMode.RUN_USING_ENCODER, pidfCoefficients);
         flywheel2.setPIDFCoefficients(DcMotor.RunMode.RUN_USING_ENCODER, pidfCoefficients);
+        return;
     }
     public void setVelocity(double vel) {
         flywheel1.setVelocity(vel);

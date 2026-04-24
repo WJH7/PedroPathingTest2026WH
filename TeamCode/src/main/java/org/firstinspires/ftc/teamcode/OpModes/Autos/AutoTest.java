@@ -59,34 +59,34 @@ public class AutoTest extends OpMode {
                 pathState = 4;
                 break;
             case 1:
-                if (pathTimer.getElapsedTimeSeconds() > 2 || follower.atPose(shootPose, 2, 2)) {
+                if (pathTimer.getElapsedTimeSeconds() > 1.5 || follower.atPose(shootPose, 2, 2)) {
                     pathTimer.resetTimer();
                     follower.followPath(shootToPickup);
                     pathState = 2;
                 }
                 break;
             case 2:
-                if (pathTimer.getElapsedTimeSeconds() > 3 || follower.atPose(openGate, 2, 2)) {
+                if (pathTimer.getElapsedTimeSeconds() > 3.5 || follower.atPose(openGate, 2, 2)) {
                     pathTimer.resetTimer();
                     follower.followPath(pickupToGate);
                     pathState = 3;
                 }
                 break;
             case 3:
-                if (pathTimer.getElapsedTimeSeconds() > 2 || follower.atPose(shootPose, 2, 2)) {
+                if (pathTimer.getElapsedTimeSeconds() > 4 || follower.atPose(shootPose, 2, 2)) {
                     pathTimer.resetTimer();
                     follower.followPath(gateToShoot);
                     pathState = 4;
                 }
                 break;
             case 4:
-                if (pathTimer.getElapsedTimeSeconds() > 3.5 || follower.atPose(shootPose, 2, 2)) {
+                if (pathTimer.getElapsedTimeSeconds() > 3.5) {
                     launcher.on();
                     if (shootReset) {
                         shootTimer.resetTimer();
                         shootReset = false;
                     }
-                    if (shootTimer.getElapsedTimeSeconds() > 2) {
+                    if (shootTimer.getElapsedTimeSeconds() > 4) {
                         telemetry.addLine("shootTimer works");
                         launcher.off();
                         if (timesShot == 0) {
