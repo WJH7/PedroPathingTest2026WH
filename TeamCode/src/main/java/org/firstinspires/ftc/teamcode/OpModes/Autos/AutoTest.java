@@ -8,7 +8,6 @@ import com.pedropathing.paths.PathChain;
 import com.qualcomm.robotcore.eventloop.opmode.Autonomous;
 import com.qualcomm.robotcore.eventloop.opmode.OpMode;
 import com.pedropathing.util.Timer;
-import com.qualcomm.robotcore.hardware.DcMotorEx;
 
 import org.firstinspires.ftc.teamcode.RobotParts.Flywheel;
 import org.firstinspires.ftc.teamcode.RobotParts.Intake;
@@ -112,7 +111,7 @@ public class AutoTest extends OpMode {
         pathBuilder();
         follower.setPose(startPose);
         intake = new Intake(hardwareMap);
-        flywheel = new Flywheel(hardwareMap, 64, 26, 14);
+        flywheel = new Flywheel(hardwareMap);
         launcher = new Launcher(hardwareMap);
     }
     public void start() {

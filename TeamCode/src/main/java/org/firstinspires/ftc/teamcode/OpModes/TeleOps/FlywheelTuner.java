@@ -18,7 +18,7 @@ public class FlywheelTuner extends OpMode {
     int stepIndex = 1;
     @Override
     public void init() {
-        flywheel = new  Flywheel(hardwareMap, P, D, F);
+        flywheel = new  Flywheel(hardwareMap);
         telemetry.addLine("Init Complete");
     }
 
